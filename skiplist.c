@@ -4,10 +4,10 @@
 #include <string.h>
 #include <time.h>
 
-#define MAX_L 16  //最大层数
+#define MAX_L 3  //最大层数
 
 // new_node生成一个Node结构体,同时生成包含n个Node *元素的数组
-#define new_node(n) ((Node *)malloc(sizeof(Node) + n * sizeof(Node *)))
+//#define new_node(n) ((Node *)malloc(sizeof(Node) + n * sizeof(Node *)))
 
 //定义key和value的类型
 typedef int keyType;
@@ -17,14 +17,23 @@ typedef int valueType;
 typedef struct node {
   keyType key;      // key值
   valueType value;  // value值
-  struct node *next[1];  // 后继指针数组，柔性数组 可实现结构体的变长
+  struct node *next[0];  // 后继指针数组，柔性数组 可实现结构体的变长
 } Node;
 
 //跳表结构
 typedef struct skip_list {
   int level;   // 最大层数
-  Node *head;  //指向头结点
+  Node *head;  // 指向头结点
 } skip_list;
+
+//#define new_node(n) ((Node *)malloc(sizeof(Node) + n * sizeof(Node *)))
+Node *new_node(int n) {
+  Node *node = ((Node *)malloc(sizeof(Node) + n * sizeof(Node *)));
+  for (int i = 0; i < n; i++) {
+    node->next[i] = NULL;
+  }
+  return node;
+}
 
 /*
   创建节点,成功返回Node*类型指针,否则返回NULL
@@ -65,6 +74,7 @@ bool erase(skip_list *sl, keyType key);
   key   节点关键字
 */
 valueType *search(skip_list *sl, keyType key);
+valueType *search1(skip_list *sl, keyType key);
 
 /*
 从最高层开始逐层打印
@@ -85,11 +95,21 @@ int main() {
   insert(skiplist1, 4, 4);
   insert(skiplist1, 5, 5);
   insert(skiplist1, 10, 10);
+  insert(skiplist1, 8, 8);
+  insert(skiplist1, 7, 7);
+  insert(skiplist1, 12, 12);
   print_sl(skiplist1);
 
   printf("\n");
-  int *v = search(skiplist1, 5);
+  valueType *v = search(skiplist1, 5);
+  if (v) {
+    printf("\nv=%d\n", *v);
+  }
 
+  valueType *v2 = search1(skiplist1, 5);
+  if (v2) {
+    printf("v2=%d\n", *v2);
+  }
   return 0;
 }
 
@@ -108,11 +128,13 @@ Node *create_node(int level, keyType key, valueType val) {
 //创建跳跃表
 skip_list *create_sl() {
   skip_list *sl = (skip_list *)malloc(sizeof(skip_list));  //申请跳表结构内存
-  if (NULL == sl) return NULL;
+  if (NULL == sl) {
+    return NULL;
+  }
 
   sl->level = 0;  // 设置跳表的层level，初始的层为0层（数组从0开始）
 
-  Node *h = create_node(MAX_L - 1, 0, 0);  //创建头结点
+  Node *h = create_node(MAX_L, 0, 0);  //创建头结点
   if (h == NULL) {
     free(sl);
     return NULL;
@@ -120,10 +142,13 @@ skip_list *create_sl() {
   sl->head = h;
 
   int i;
+
   // 将header的next数组清空
   for (i = 0; i < MAX_L; ++i) {
     h->next[i] = NULL;
   }
+  printf("\n");
+
   srand(time(0));
   return sl;
 }
@@ -146,14 +171,17 @@ step3:从高层至下插入,与普通链表的插入完全相同。
 */
 bool insert(skip_list *sl, keyType key, valueType val) {
   Node *update[MAX_L];
-  Node *q = NULL, *p = sl->head;  // q,p初始化
+  Node *q = NULL;
+  Node *p = sl->head;  // q,p初始化
   int i = sl->level - 1;
 
   /******************step1*******************/
   //从最高层往下查找需要插入的位置,并更新update
   //即把降层节点指针保存到update数组
   for (; i >= 0; --i) {
-    while ((q = p->next[i]) && q->key < key) p = q;
+    while ((q = p->next[i]) && q->key < key) {
+      p = q;
+    }
     update[i] = p;
   }
 
@@ -162,9 +190,11 @@ bool insert(skip_list *sl, keyType key, valueType val) {
     q->value = val;
     return true;
   }
+
   /******************step2*******************/
-  //产生一个随机层数level
+  //产生一个随机层数level; 就算是第一次插入节点，也有可能 level 较大的情况
   int level = randomLevel();
+
   //如果新生成的层数比跳表的层数大
   if (level > sl->level) {
     //在update数组中将新添加的层指向header
@@ -173,6 +203,7 @@ bool insert(skip_list *sl, keyType key, valueType val) {
     }
     sl->level = level;
   }
+
   // printf("%d\n", sizeof(Node)+level*sizeof(Node*));
   /******************step3*******************/
   //新建一个待插入节点,一层一层插入
@@ -211,9 +242,12 @@ bool erase(skip_list *sl, keyType key) {
     {
       update[i]->next[i] = q->next[i];
       //如果删除的是最高层的节点,则level--
-      if (sl->head->next[i] == NULL) sl->level--;
+      if (sl->head->next[i] == NULL) {
+        sl->level--;
+      }
     }
   }
+
   free(q);
   q = NULL;
   return true;
@@ -221,6 +255,10 @@ bool erase(skip_list *sl, keyType key) {
 
 // 查找
 valueType *search(skip_list *sl, keyType key) {
+  if (sl == NULL) {
+    return NULL;
+  }
+
   Node *q = NULL;
   Node *p = sl->head;
 
@@ -239,6 +277,28 @@ valueType *search(skip_list *sl, keyType key) {
   return NULL;
 }
 
+valueType *search1(skip_list *sl, keyType key) {
+  if (sl == NULL) {
+    return NULL;
+  }
+
+  Node *node = NULL;
+  Node *cur = sl->head;
+  for (int level = sl->level - 1; level >= 0; level--) {
+    node = cur->next[level];
+    while (node != NULL && node->key < key) {
+      printf("serach1 while: level=%d, node=%d, cur=%d\n", level, node->key, cur->key);
+      cur = node;
+      node = node->next[level];
+    }
+
+    printf("serach1 for: level=%d, cur=%d\n", level, cur->key);
+    if (node != NULL && node->key == key) {
+      return &node->value;
+    }
+  }
+  return NULL;
+}
 //从最高层开始逐层打印
 void print_sl(skip_list *sl)
 {
@@ -247,7 +307,7 @@ void print_sl(skip_list *sl)
     for(; i >= 0; --i)
     {
         q = sl->head->next[i];
-        printf("level %d:\n", i+1);
+        printf("level %d:    ", i);
 
         while(q)
         {
@@ -274,4 +334,5 @@ void sl_free(skip_list *sl)
         q=next;
     }
     free(sl);
+    sl = NULL;
 }
