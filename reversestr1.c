@@ -109,23 +109,20 @@ void reverse_str_trim(char* str, int len) {
   //先逆转
   reverse2(str, len);
 
-  //再今次找单词，找到单词后，逆序拷贝
+  //再依次找单词，找到单词后，逆序拷贝
   char* p1 = str;
   char* p2 = NULL;
-  int i = 0;
   int j = 0;
-  while (i < len) {
+  while (*p1 != '\0') {
     // 1. 第一个字符
-    while (isDigit(str[i]) == -1 && i < len) {
-      p1++;
-      i++;
+    while (isDigit(*p1) == -1 && *p1 != '\0') {
+      *p1++;
     }
     p2 = p1;
 
     //第一个单词
-    while (isDigit(str[i]) == 1 && i < len) {
-      p1++;
-      i++;
+    while (isDigit(*p1) == 1 && *p1 != '\0') {
+      *p1++;
     }
 
     int flag = 0;
@@ -134,7 +131,7 @@ void reverse_str_trim(char* str, int len) {
       dest[j++] = *p3--;
       flag = 1;
     }
-    if (flag == 1 && j < len - 1) {
+    if (flag == 1 && *p1 != '\0') {
       dest[j++] = ' ';
     }
   }
